@@ -47,7 +47,7 @@ The API key never leaves the server.
 
 - Vite + React + TypeScript
 - Express (API + Vite middleware in development, static files in production)
-- Leaflet + Carto dark tiles (no Mapbox key)
+- Leaflet + Esri World Imagery tiles (no Mapbox key)
 - `exifr` for metadata, optional HEIC via `heic2any`
 
 ```bash
