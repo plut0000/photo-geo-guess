@@ -14,10 +14,37 @@ export function extractJson(text: string): unknown {
   const raw = fenced ? fenced[1] : text;
   const start = raw.indexOf("{");
   const end = raw.lastIndexOf("}");
-  if (start === -1 || end === -1 || end <= start) {
-    throw new Error("The vision model did not return a location estimate.");
+  if (start === -1) {
+    throw new Error(missingJsonError(text));
   }
-  return JSON.parse(raw.slice(start, end + 1));
+  if (end === -1 || end <= start) {
+    throw new Error(
+      missingJsonError(text, "The JSON object was truncated or invalid."),
+    );
+  }
+  try {
+    return JSON.parse(raw.slice(start, end + 1));
+  } catch {
+    throw new Error(
+      missingJsonError(text, "The JSON object was truncated or invalid."),
+    );
+  }
+}
+
+export function missingJsonError(text: string, extra?: string): string {
+  const preview = (text || "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 180);
+  const parts = ["The vision model did not return a location estimate."];
+  if (extra) parts.push(extra);
+  if (!preview) {
+    parts.push("The model response was empty.");
+  } else {
+    const clipped = (text || "").trim().length > 180;
+    parts.push(`Response preview: ${preview}${clipped ? "…" : ""}`);
+  }
+  return parts.join(" ");
 }
 
 export function normalizeVisionGuess(raw: unknown): VisionGuess {

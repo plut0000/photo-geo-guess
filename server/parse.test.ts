@@ -12,6 +12,20 @@ describe("extractJson", () => {
     const parsed = extractJson('Here you go: {"latitude": 1, "longitude": 2, "placeName": "X"} thanks');
     assert.equal((parsed as { placeName: string }).placeName, "X");
   });
+
+  it("surfaces a preview when the model returns prose without JSON", () => {
+    assert.throws(
+      () => extractJson("I cannot determine the location from this night photo."),
+      /Response preview: I cannot determine the location/,
+    );
+  });
+
+  it("explains truncated JSON", () => {
+    assert.throws(
+      () => extractJson('{"latitude": 40.7, "longitude":'),
+      /truncated or invalid/,
+    );
+  });
 });
 
 describe("normalizeVisionGuess", () => {
