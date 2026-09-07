@@ -142,7 +142,7 @@ async function callAnthropic(mediaType: string, base64: string): Promise<string>
 }
 
 function geminiModelId(): string {
-  const raw = process.env.GEMINI_MODEL?.trim() || "gemini-2.5-flash";
+  const raw = process.env.GEMINI_MODEL?.trim() || "gemini-3.6-flash";
   return raw.replace(/^models\//, "");
 }
 

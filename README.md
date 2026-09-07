@@ -47,7 +47,7 @@ Copy `.env.example` to `.env` locally, or set the same names in the Vercel proje
 | `GEMINI_API_KEY` | For visual guesses (free tier OK) | Uses Gemini Flash via [Google AI Studio](https://aistudio.google.com/apikey). Enough for personal use; rate-limited. |
 | `OPENAI_API_KEY` | Alternative | Uses GPT-4o (or `OPENAI_MODEL`) |
 | `ANTHROPIC_API_KEY` | Alternative | Used if `OPENAI_API_KEY` is unset |
-| `GEMINI_MODEL` | No | Defaults to `gemini-2.5-flash` (current free-tier Flash; `gemini-2.0-flash` was shut down) |
+| `GEMINI_MODEL` | No | Defaults to `gemini-3.6-flash` (current Flash; override if Google retires this id) |
 | `OPENAI_MODEL` | No | Defaults to `gpt-4o` |
 | `ANTHROPIC_MODEL` | No | Defaults to `claude-sonnet-4-20250514` |
 | `PORT` | No | Defaults to `5173` |
