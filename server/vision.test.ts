@@ -91,12 +91,51 @@ describe("guessFromImage Gemini", () => {
 
     try {
       const guess = await guessFromImage("data:image/jpeg;base64,abc123");
-      assert.match(requestedUrl, /gemini-2\.5-flash:generateContent/);
+      assert.match(requestedUrl, /gemini-3\.6-flash:generateContent/);
       assert.equal(requestedBody.contents?.[0]?.parts?.[0]?.inline_data?.mime_type, "image/jpeg");
       assert.equal(requestedBody.contents?.[0]?.parts?.[0]?.inline_data?.data, "abc123");
       assert.equal(guess.placeName, "Tokyo, Japan");
       assert.equal(guess.latitude, 35.68);
       assert.equal(guess.confidence, 0.72);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  it("honors GEMINI_MODEL override", async () => {
+    clearKeys();
+    process.env.GEMINI_API_KEY = "test-gemini";
+    process.env.GEMINI_MODEL = "gemini-3.1-flash-lite";
+    const originalFetch = globalThis.fetch;
+    let requestedUrl = "";
+    globalThis.fetch = (async (input: string | URL) => {
+      requestedUrl = String(input);
+      return new Response(
+        JSON.stringify({
+          candidates: [
+            {
+              content: {
+                parts: [
+                  {
+                    text: JSON.stringify({
+                      latitude: 1,
+                      longitude: 2,
+                      placeName: "X",
+                      rationale: "cues",
+                      confidence: 0.4,
+                    }),
+                  },
+                ],
+              },
+            },
+          ],
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
+    }) as typeof fetch;
+    try {
+      await guessFromImage("data:image/jpeg;base64,abc");
+      assert.match(requestedUrl, /gemini-3\.1-flash-lite:generateContent/);
     } finally {
       globalThis.fetch = originalFetch;
     }
