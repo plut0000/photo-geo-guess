@@ -15,7 +15,7 @@ export type LocationGuess = {
 
 export type VisionStatus = {
   visionEnabled: boolean;
-  provider: "openai" | "anthropic" | null;
+  provider: "openai" | "anthropic" | "gemini" | null;
 };
 
 export type AppState =

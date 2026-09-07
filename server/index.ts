@@ -56,7 +56,7 @@ app.post("/api/guess", async (req, res) => {
       if (!getVisionProvider()) {
         res.status(503).json({
           error:
-            "This photo has no GPS data. Add OPENAI_API_KEY or ANTHROPIC_API_KEY to a local .env file and restart the server to enable visual guessing.",
+            "This photo has no GPS data. Add GEMINI_API_KEY, OPENAI_API_KEY, or ANTHROPIC_API_KEY to a local .env file and restart the server to enable visual guessing.",
         });
         return;
       }

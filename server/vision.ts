@@ -26,9 +26,13 @@ Confidence guide:
 - 0.25–0.54 broad regional guess
 - below 0.25 very uncertain, country-scale or weaker`;
 
-export function getVisionProvider(): "openai" | "anthropic" | null {
+export type VisionProvider = "openai" | "anthropic" | "gemini";
+
+/** Preference: OpenAI → Anthropic → Gemini. */
+export function getVisionProvider(): VisionProvider | null {
   if (process.env.OPENAI_API_KEY?.trim()) return "openai";
   if (process.env.ANTHROPIC_API_KEY?.trim()) return "anthropic";
+  if (process.env.GEMINI_API_KEY?.trim()) return "gemini";
   return null;
 }
 
@@ -36,14 +40,16 @@ export async function guessFromImage(dataUrl: string): Promise<VisionGuess> {
   const provider = getVisionProvider();
   if (!provider) {
     throw new Error(
-      "Visual guessing needs an API key. Set OPENAI_API_KEY or ANTHROPIC_API_KEY and restart the server.",
+      "Visual guessing needs an API key. Set GEMINI_API_KEY, OPENAI_API_KEY, or ANTHROPIC_API_KEY and restart the server.",
     );
   }
   const { mediaType, base64 } = splitDataUrl(dataUrl);
   const text =
     provider === "openai"
       ? await callOpenAI(dataUrl)
-      : await callAnthropic(mediaType, base64);
+      : provider === "anthropic"
+        ? await callAnthropic(mediaType, base64)
+        : await callGemini(mediaType, base64);
   return normalizeVisionGuess(extractJson(text));
 }
 
@@ -132,5 +138,73 @@ async function callAnthropic(mediaType: string, base64: string): Promise<string>
   }
   const text = data.content?.find((block) => block.type === "text")?.text;
   if (!text) throw new Error("Anthropic returned an empty response.");
+  return text;
+}
+
+function geminiModelId(): string {
+  const raw = process.env.GEMINI_MODEL?.trim() || "gemini-2.5-flash";
+  return raw.replace(/^models\//, "");
+}
+
+async function callGemini(mediaType: string, base64: string): Promise<string> {
+  const model = geminiModelId();
+  const key = process.env.GEMINI_API_KEY?.trim() ?? "";
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      "x-goog-api-key": key,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      systemInstruction: {
+        parts: [{ text: SYSTEM_PROMPT }],
+      },
+      contents: [
+        {
+          parts: [
+            { inline_data: { mime_type: mediaType, data: base64 } },
+            { text: "Estimate where this photograph was taken." },
+          ],
+        },
+      ],
+      generationConfig: {
+        temperature: 0.2,
+        maxOutputTokens: 1024,
+        responseMimeType: "application/json",
+      },
+    }),
+  });
+  const data = (await res.json()) as {
+    error?: { message?: string };
+    promptFeedback?: { blockReason?: string };
+    candidates?: {
+      finishReason?: string;
+      content?: { parts?: { text?: string }[] };
+    }[];
+  };
+  if (!res.ok) {
+    throw new Error(
+      data.error?.message
+        ? `Gemini: ${data.error.message}`
+        : `Gemini request failed (${res.status}).`,
+    );
+  }
+  const block = data.promptFeedback?.blockReason;
+  if (block) {
+    throw new Error(`Gemini blocked the photo (${block}).`);
+  }
+  const text = data.candidates?.[0]?.content?.parts
+    ?.map((part) => part.text)
+    .filter(Boolean)
+    .join("\n");
+  if (!text) {
+    const reason = data.candidates?.[0]?.finishReason;
+    throw new Error(
+      reason
+        ? `Gemini returned an empty response (${reason}).`
+        : "Gemini returned an empty response.",
+    );
+  }
   return text;
 }
