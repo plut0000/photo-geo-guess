@@ -88,7 +88,7 @@ export default function App() {
           status: "error",
           previewUrl,
           message:
-            "This photo has no GPS data. Visual guessing needs a GEMINI_API_KEY, OPENAI_API_KEY, or ANTHROPIC_API_KEY in a local .env file.",
+            "This photo has no GPS data. Visual guessing needs a GEMINI_API_KEY, OPENAI_API_KEY, or ANTHROPIC_API_KEY in a local .env file or Vercel project environment.",
         });
         return;
       }
