@@ -27,19 +27,25 @@ Copy `.env.example` to `.env`. **Do not commit secrets.**
 
 | Variable | Required | Purpose |
 | --- | --- | --- |
-| `OPENAI_API_KEY` | For visual guesses | Uses GPT-4o (or `OPENAI_MODEL`) to geolocate photos without GPS |
-| `ANTHROPIC_API_KEY` | Alternative to OpenAI | Used only if `OPENAI_API_KEY` is unset |
+| `GEMINI_API_KEY` | For visual guesses (free tier OK) | Uses Gemini Flash via [Google AI Studio](https://aistudio.google.com/apikey). Enough for personal use; rate-limited. |
+| `OPENAI_API_KEY` | Alternative | Uses GPT-4o (or `OPENAI_MODEL`) |
+| `ANTHROPIC_API_KEY` | Alternative | Used if `OPENAI_API_KEY` is unset |
+| `GEMINI_MODEL` | No | Defaults to `gemini-2.5-flash` (current free-tier Flash; `gemini-2.0-flash` was shut down) |
 | `OPENAI_MODEL` | No | Defaults to `gpt-4o` |
 | `ANTHROPIC_MODEL` | No | Defaults to `claude-sonnet-4-20250514` |
 | `PORT` | No | Defaults to `5173` |
 
-If neither API key is set, EXIF-based guesses still work. Photos without GPS show a clear message that visual guessing needs a key.
+If more than one key is set, the server prefers **OpenAI → Anthropic → Gemini**. A Gemini-only `.env` is enough.
+
+Get a free Gemini key at [Google AI Studio](https://aistudio.google.com/apikey). The free tier is enough for personal use (rate-limited).
+
+If no API key is set, EXIF-based guesses still work. Photos without GPS show a clear message that visual guessing needs a key.
 
 ## How guessing works
 
 1. **Client EXIF** — GPS is parsed in the browser with [`exifr`](https://github.com/MikeKovarik/exifr). HEIC is converted in-browser when possible.
 2. **Embedded GPS** — coordinates are reverse-geocoded through the local server via OpenStreetMap Nominatim. Confidence is high; the map circle is about **1.5–10 km** (tighter when the fix is exact).
-3. **No GPS** — a compressed JPEG is sent to `/api/guess`. The server calls OpenAI or Anthropic and asks for a center point, place label, 1–3 sentence rationale, and confidence. Radius maps linearly from **10 km** (high confidence) to **30 km** (low).
+3. **No GPS** — a compressed JPEG is sent to `/api/guess`. The server calls Gemini, OpenAI, or Anthropic and asks for a center point, place label, 1–3 sentence rationale, and confidence. Radius maps linearly from **10 km** (high confidence) to **30 km** (low).
 
 The API key never leaves the server.
 
