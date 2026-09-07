@@ -10,7 +10,7 @@
     "test": "tsx --test src/lib/radius.test.ts server/parse.test.ts server/vision.test.ts server/handlers.test.ts"
   },
   "engines": {
-    "node": ">=20"
+    "node": "24.x"
   },
   "dependencies": {
     "exifr": "^7.1.3",
