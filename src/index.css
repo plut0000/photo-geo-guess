@@ -377,6 +377,21 @@ h2 {
   font-family: Outfit, system-ui, sans-serif;
 }
 
+.leaflet-control-zoom a {
+  background: #141b26 !important;
+  color: var(--ink) !important;
+  border-color: var(--line) !important;
+}
+
+.leaflet-control-attribution {
+  background: rgba(12, 16, 23, 0.72) !important;
+  color: var(--muted) !important;
+}
+
+.leaflet-control-attribution a {
+  color: var(--accent-2) !important;
+}
+
 .locus-pin-core {
   display: block;
   width: 16px;
