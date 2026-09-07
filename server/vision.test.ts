@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { afterEach, describe, it } from "node:test";
-import { getVisionProvider, guessFromImage } from "./vision.ts";
+import { getVisionProvider, guessFromImage } from "./vision.js";
 
 const KEYS = ["OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GEMINI_API_KEY", "GEMINI_MODEL"] as const;
 
