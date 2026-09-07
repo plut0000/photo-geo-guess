@@ -1,4 +1,4 @@
-import { extractJson, normalizeVisionGuess, type VisionGuess } from "./parse.js";
+import { extractJson, missingJsonError, normalizeVisionGuess, type VisionGuess } from "./parse.js";
 
 const SYSTEM_PROMPT = `You are an expert photographic geolocation analyst.
 Estimate where a photo was taken from visual evidence only.
@@ -146,6 +146,71 @@ function geminiModelId(): string {
   return raw.replace(/^models\//, "");
 }
 
+export type GeminiPart = {
+  text?: string;
+  thought?: boolean;
+};
+
+export type GeminiGenerateResponse = {
+  error?: { message?: string };
+  promptFeedback?: { blockReason?: string };
+  usageMetadata?: { thoughtsTokenCount?: number; totalTokenCount?: number };
+  candidates?: {
+    finishReason?: string;
+    finishMessage?: string;
+    safetyRatings?: { category?: string; probability?: string; blocked?: boolean }[];
+    content?: { parts?: GeminiPart[] };
+  }[];
+};
+
+/** Skip thought/reasoning parts; they often consume the token budget on Gemini 3. */
+export function collectGeminiText(
+  parts: GeminiPart[] | undefined,
+  includeThoughts = false,
+): string {
+  if (!parts?.length) return "";
+  return parts
+    .filter((part) => includeThoughts || part.thought !== true)
+    .map((part) => (typeof part.text === "string" ? part.text : ""))
+    .filter((text) => text.trim().length > 0)
+    .join("\n")
+    .trim();
+}
+
+function looksLikeJsonObject(text: string): boolean {
+  if (!text.trim()) return false;
+  try {
+    extractJson(text);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Prefer visible answer text; fall back to thought parts if they contain JSON. */
+export function geminiTextForParse(parts: GeminiPart[] | undefined): string {
+  const answer = collectGeminiText(parts, false);
+  if (looksLikeJsonObject(answer)) return answer;
+  const withThoughts = collectGeminiText(parts, true);
+  if (looksLikeJsonObject(withThoughts)) return withThoughts;
+  return answer || withThoughts;
+}
+
+const LOCATION_JSON_SCHEMA = {
+  type: "OBJECT",
+  properties: {
+    latitude: { type: "NUMBER" },
+    longitude: { type: "NUMBER" },
+    placeName: { type: "STRING" },
+    city: { type: "STRING" },
+    region: { type: "STRING" },
+    country: { type: "STRING" },
+    rationale: { type: "STRING" },
+    confidence: { type: "NUMBER" },
+  },
+  required: ["latitude", "longitude", "placeName", "rationale", "confidence"],
+};
+
 async function callGemini(mediaType: string, base64: string): Promise<string> {
   const model = geminiModelId();
   const key = process.env.GEMINI_API_KEY?.trim() ?? "";
@@ -163,26 +228,25 @@ async function callGemini(mediaType: string, base64: string): Promise<string> {
       contents: [
         {
           parts: [
-            { inline_data: { mime_type: mediaType, data: base64 } },
-            { text: "Estimate where this photograph was taken." },
+            { inlineData: { mimeType: mediaType, data: base64 } },
+            {
+              text: "Return only the JSON location estimate for this photograph. Always include latitude, longitude, placeName, rationale, and confidence. Never reply with prose only.",
+            },
           ],
         },
       ],
       generationConfig: {
-        temperature: 0.2,
-        maxOutputTokens: 1024,
+        maxOutputTokens: 8192,
         responseMimeType: "application/json",
+        responseSchema: LOCATION_JSON_SCHEMA,
+        thinkingConfig: {
+          thinkingLevel: "minimal",
+          includeThoughts: false,
+        },
       },
     }),
   });
-  const data = (await res.json()) as {
-    error?: { message?: string };
-    promptFeedback?: { blockReason?: string };
-    candidates?: {
-      finishReason?: string;
-      content?: { parts?: { text?: string }[] };
-    }[];
-  };
+  const data = (await res.json()) as GeminiGenerateResponse;
   if (!res.ok) {
     throw new Error(
       data.error?.message
@@ -194,17 +258,51 @@ async function callGemini(mediaType: string, base64: string): Promise<string> {
   if (block) {
     throw new Error(`Gemini blocked the photo (${block}).`);
   }
-  const text = data.candidates?.[0]?.content?.parts
-    ?.map((part) => part.text)
-    .filter(Boolean)
-    .join("\n");
-  if (!text) {
-    const reason = data.candidates?.[0]?.finishReason;
-    throw new Error(
-      reason
-        ? `Gemini returned an empty response (${reason}).`
-        : "Gemini returned an empty response.",
+
+  const candidate = data.candidates?.[0];
+  const finishReason = candidate?.finishReason;
+  const parts = candidate?.content?.parts;
+  const text = geminiTextForParse(parts);
+
+  if (!text || !looksLikeJsonObject(text)) {
+    const extras = geminiFailureExtras(data, candidate);
+    const message = missingJsonError(
+      text,
+      extras
+        ? `Gemini diagnostics: ${extras}.`
+        : "Gemini returned no parseable JSON object.",
     );
+    console.error("[gemini] location JSON missing", {
+      finishReason,
+      finishMessage: candidate?.finishMessage,
+      thoughtsTokenCount: data.usageMetadata?.thoughtsTokenCount,
+      preview: (text || "").replace(/\s+/g, " ").trim().slice(0, 240),
+    });
+    throw new Error(message);
   }
   return text;
+}
+
+function geminiFailureExtras(
+  data: GeminiGenerateResponse,
+  candidate: NonNullable<GeminiGenerateResponse["candidates"]>[number] | undefined,
+): string {
+  const blocked = candidate?.safetyRatings
+    ?.filter((rating) => rating.blocked)
+    .map((rating) => rating.category)
+    .filter(Boolean);
+  return [
+    candidate?.finishReason ? `finishReason=${candidate.finishReason}` : "",
+    candidate?.finishMessage ? `finishMessage=${candidate.finishMessage}` : "",
+    data.promptFeedback?.blockReason
+      ? `blockReason=${data.promptFeedback.blockReason}`
+      : "",
+    blocked?.length ? `safetyBlocked=${blocked.join("|")}` : "",
+    typeof data.usageMetadata?.thoughtsTokenCount === "number"
+      ? `thoughtsTokenCount=${data.usageMetadata.thoughtsTokenCount}`
+      : "",
+    !candidate ? "no candidates" : "",
+  ]
+    .filter(Boolean)
+    .join(", ");
 }
