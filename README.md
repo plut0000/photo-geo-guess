@@ -14,16 +14,33 @@ npm run dev
 
 Open [http://localhost:5173](http://localhost:5173).
 
-Production:
+Production (local):
 
 ```bash
 npm run build
 npm start
 ```
 
+## Deploy on Vercel
+
+This repo is set up as a Vite frontend plus `/api` serverless functions.
+
+1. Import the GitHub repo at [vercel.com/new](https://vercel.com/new).
+2. Vercel detects Vite. Leave the defaults (`npm run build`, output `dist`).
+3. Optional: in Project Settings → Environment Variables, add `GEMINI_API_KEY` (free tier), `OPENAI_API_KEY`, or `ANTHROPIC_API_KEY` (and redeploy) so photos without GPS can use visual guessing.
+4. Deploy.
+
+Or from a machine logged into Vercel CLI:
+
+```bash
+npx vercel --yes --prod
+```
+
+EXIF-based guesses work without any API key. Visual guesses stay on the server so the key never ships to the browser.
+
 ## Environment variables
 
-Copy `.env.example` to `.env`. **Do not commit secrets.**
+Copy `.env.example` to `.env` locally, or set the same names in the Vercel project. **Do not commit secrets.**
 
 | Variable | Required | Purpose |
 | --- | --- | --- |
@@ -52,7 +69,8 @@ The API key never leaves the server.
 ## Stack
 
 - Vite + React + TypeScript
-- Express (API + Vite middleware in development, static files in production)
+- Express for local `npm run dev` / `npm start`
+- Vercel Functions for `/api/status` and `/api/guess` in production
 - Leaflet + Esri World Imagery tiles (no Mapbox key)
 - `exifr` for metadata, optional HEIC via `heic2any`
 

@@ -3,8 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import express from "express";
 import { createServer as createViteServer } from "vite";
-import { reverseGeocode } from "./geocode.ts";
-import { getVisionProvider, guessFromImage } from "./vision.ts";
+import { handleGuess, handleStatus, type GuessRequest } from "./handlers.ts";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, "..");
@@ -18,69 +17,12 @@ app.disable("x-powered-by");
 app.use("/api", express.json({ limit: "12mb" }));
 
 app.get("/api/status", (_req, res) => {
-  const provider = getVisionProvider();
-  res.json({ visionEnabled: Boolean(provider), provider });
+  res.json(handleStatus());
 });
 
 app.post("/api/guess", async (req, res) => {
-  try {
-    const body = req.body as {
-      source?: string;
-      latitude?: number;
-      longitude?: number;
-      image?: string;
-    };
-
-    if (body.source === "exif") {
-      const latitude = Number(body.latitude);
-      const longitude = Number(body.longitude);
-      if (!validCoord(latitude, longitude)) {
-        res.status(400).json({ error: "Those GPS coordinates look invalid." });
-        return;
-      }
-      const place = await reverseGeocode(latitude, longitude);
-      res.json({
-        latitude,
-        longitude,
-        ...place,
-        rationale:
-          "This photo embeds GPS coordinates in its EXIF metadata, so the pin is taken from the camera rather than guessed from the scene.",
-        confidence: 0.98,
-        radiusKm: 1.7,
-        source: "exif",
-      });
-      return;
-    }
-
-    if (body.source === "vision") {
-      if (!getVisionProvider()) {
-        res.status(503).json({
-          error:
-            "This photo has no GPS data. Add GEMINI_API_KEY, OPENAI_API_KEY, or ANTHROPIC_API_KEY to a local .env file and restart the server to enable visual guessing.",
-        });
-        return;
-      }
-      if (typeof body.image !== "string" || !body.image.startsWith("data:image/")) {
-        res.status(400).json({ error: "A photo is required for visual guessing." });
-        return;
-      }
-      const guess = await guessFromImage(body.image);
-      const confidence = Math.min(1, Math.max(0, guess.confidence));
-      res.json({
-        ...guess,
-        confidence,
-        radiusKm: Math.round((30 - confidence * 20) * 10) / 10,
-        source: "vision",
-      });
-      return;
-    }
-
-    res.status(400).json({ error: "Unknown guess source." });
-  } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Something went wrong while guessing.";
-    res.status(500).json({ error: message });
-  }
+  const result = await handleGuess(req.body as GuessRequest);
+  res.status(result.status).json(result.body);
 });
 
 if (isProd) {
@@ -101,16 +43,6 @@ if (isProd) {
 app.listen(port, "0.0.0.0", () => {
   console.log(`Locus running at http://localhost:${port}`);
 });
-
-function validCoord(lat: number, lng: number): boolean {
-  return (
-    Number.isFinite(lat) &&
-    Number.isFinite(lng) &&
-    Math.abs(lat) <= 90 &&
-    Math.abs(lng) <= 180 &&
-    !(lat === 0 && lng === 0)
-  );
-}
 
 function loadEnvFile(filePath: string): void {
   if (!fs.existsSync(filePath)) return;
