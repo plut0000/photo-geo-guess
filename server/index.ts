@@ -3,7 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import express from "express";
 import { createServer as createViteServer } from "vite";
-import { handleGuess, handleStatus, type GuessRequest } from "./handlers.ts";
+import { handleGuess, handleStatus, type GuessRequest } from "./handlers.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, "..");

@@ -1,4 +1,4 @@
-import { handleGuess, type GuessRequest } from "../server/handlers.ts";
+import { handleGuess, type GuessRequest } from "../server/handlers.js";
 
 export const maxDuration = 60;
 

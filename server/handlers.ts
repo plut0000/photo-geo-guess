@@ -1,5 +1,5 @@
-import { reverseGeocode } from "./geocode.ts";
-import { getVisionProvider, guessFromImage } from "./vision.ts";
+import { reverseGeocode } from "./geocode.js";
+import { getVisionProvider, guessFromImage } from "./vision.js";
 
 export type GuessRequest = {
   source?: string;

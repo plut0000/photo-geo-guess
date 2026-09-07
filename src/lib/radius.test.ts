@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { clampConfidence, confidenceToRadiusKm } from "./radius.ts";
+import { clampConfidence, confidenceToRadiusKm } from "./radius.js";
 
 describe("confidenceToRadiusKm", () => {
   it("maps vision confidence into the 10–30 km band", () => {

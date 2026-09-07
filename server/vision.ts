@@ -1,4 +1,4 @@
-import { extractJson, normalizeVisionGuess, type VisionGuess } from "./parse.ts";
+import { extractJson, normalizeVisionGuess, type VisionGuess } from "./parse.js";
 
 const SYSTEM_PROMPT = `You are an expert photographic geolocation analyst.
 Estimate where a photo was taken from visual evidence only.

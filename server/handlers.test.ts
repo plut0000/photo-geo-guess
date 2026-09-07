@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { handleGuess, handleStatus } from "./handlers.ts";
+import { handleGuess, handleStatus } from "./handlers.js";
 
 const KEYS = ["OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GEMINI_API_KEY"] as const;
 

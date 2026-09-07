@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { extractJson, normalizeVisionGuess } from "./parse.ts";
+import { extractJson, normalizeVisionGuess } from "./parse.js";
 
 describe("extractJson", () => {
   it("reads a fenced JSON object", () => {
