@@ -45,10 +45,10 @@ Copy `.env.example` to `.env` locally, or set the same names in the Vercel proje
 | Variable | Required | Purpose |
 | --- | --- | --- |
 | `GEMINI_API_KEY` | For visual guesses (free tier OK) | Uses Gemini Flash via [Google AI Studio](https://aistudio.google.com/apikey). Enough for personal use; rate-limited. |
-| `OPENAI_API_KEY` | Alternative | Uses GPT-4o (or `OPENAI_MODEL`) |
+| `OPENAI_API_KEY` | Alternative | Uses `gpt-5.6-luna` (or `OPENAI_MODEL`) through the Responses API |
 | `ANTHROPIC_API_KEY` | Alternative | Used if `OPENAI_API_KEY` is unset |
 | `GEMINI_MODEL` | No | Defaults to `gemini-3.6-flash` (current Flash; override if Google retires this id) |
-| `OPENAI_MODEL` | No | Defaults to `gpt-4o` |
+| `OPENAI_MODEL` | No | Defaults to `gpt-5.6-luna`, a reasoning model called with reasoning effort `low`. Must accept image input. |
 | `ANTHROPIC_MODEL` | No | Defaults to `claude-sonnet-4-20250514` |
 | `PORT` | No | Defaults to `5173` |
 
@@ -62,9 +62,17 @@ If no API key is set, EXIF-based guesses still work. Photos without GPS show a c
 
 1. **Client EXIF** — GPS is parsed in the browser with [`exifr`](https://github.com/MikeKovarik/exifr). HEIC is converted in-browser when possible.
 2. **Embedded GPS** — coordinates are reverse-geocoded through the local server via OpenStreetMap Nominatim. Confidence is high; the map circle is about **1.5–10 km** (tighter when the fix is exact).
-3. **No GPS** — a compressed JPEG is sent to `/api/guess`. The server calls Gemini, OpenAI, or Anthropic and asks for a center point, place label, 1–3 sentence rationale, and confidence. Radius maps linearly from **10 km** (high confidence) to **30 km** (low).
+3. **No GPS** — a compressed JPEG is sent to `/api/guess`, along with a few non-GPS metadata fields read in the browser when the file has them: capture time and UTC offset, camera make/model, lens, altitude, caption, software, and IPTC/XMP location tags (sublocation, city, region, country). The server calls OpenAI, Anthropic, or Gemini with the metadata as clearly labeled hints and asks for a center point, place label, confidence, and a rationale of at most two sentences. Radius maps linearly from **10 km** (high confidence) to **30 km** (low).
+
+GPS coordinates are never sent this way: photos with GPS skip the vision model entirely, and the browser only reads altitude from the GPS block.
 
 The API key never leaves the server.
+
+### When a model reply goes wrong
+
+- **Cut-off answers.** Gemini and OpenAI are asked for coordinates and confidence before the place name and rationale. If a reply stops early (Gemini `MAX_TOKENS`, OpenAI `max_output_tokens`), the server keeps the coordinates and any other fields that were fully written, uses a confidence of 0.4 if none was given, and shows the partial rationale.
+- **No usable coordinates.** The server retries once, unless the model refused the photo or the first attempt was too slow to fit another one in the 60 s function limit.
+- **Quota or rate limits.** A Gemini free-tier `429` (20 requests per day) or an OpenAI `429` / `insufficient_quota` shows a plain message, such as "The free AI quota is used up for today. Try again tomorrow, or use a photo that has GPS data." Photos with GPS keep working without any AI quota.
 
 ## Stack
 
@@ -75,5 +83,5 @@ The API key never leaves the server.
 - `exifr` for metadata, optional HEIC via `heic2any`
 
 ```bash
-npm test    # radius + JSON parsing
+npm test    # radius, metadata, JSON salvage, provider requests
 ```

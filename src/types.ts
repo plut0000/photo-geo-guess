@@ -13,6 +13,24 @@ export type LocationGuess = {
   source: GuessSource;
 };
 
+/** Non-GPS photo metadata sent with vision guesses; the server re-validates it (server/metadata.ts). */
+export type PhotoMetadata = {
+  /** Camera wall-clock time, `YYYY-MM-DDTHH:MM:SS` or `YYYY-MM-DD`. */
+  takenAt?: string;
+  /** `±HH:MM` offset recorded with the capture time. */
+  utcOffset?: string;
+  cameraMake?: string;
+  cameraModel?: string;
+  lens?: string;
+  altitudeM?: number;
+  caption?: string;
+  software?: string;
+  sublocation?: string;
+  city?: string;
+  region?: string;
+  country?: string;
+};
+
 export type VisionStatus = {
   visionEnabled: boolean;
   provider: "openai" | "anthropic" | "gemini" | null;
