@@ -1,11 +1,13 @@
 import { reverseGeocode } from "./geocode.js";
-import { getVisionProvider, guessFromImage } from "./vision.js";
+import { sanitizePhotoMetadata } from "./metadata.js";
+import { getVisionProvider, guessFromImage, QuotaExceededError } from "./vision.js";
 
 export type GuessRequest = {
   source?: string;
   latitude?: number;
   longitude?: number;
   image?: string;
+  metadata?: unknown;
 };
 
 export function handleStatus() {
@@ -52,7 +54,7 @@ export async function handleGuess(
       return { status: 400, body: { error: "A photo is required for visual guessing." } };
     }
     try {
-      const guess = await guessFromImage(body.image);
+      const guess = await guessFromImage(body.image, sanitizePhotoMetadata(body.metadata));
       const confidence = Math.min(1, Math.max(0, guess.confidence));
       return {
         status: 200,
@@ -66,7 +68,10 @@ export async function handleGuess(
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Something went wrong while guessing.";
-      return { status: 500, body: { error: message } };
+      return {
+        status: error instanceof QuotaExceededError ? 429 : 500,
+        body: { error: message },
+      };
     }
   }
 
