@@ -4,7 +4,7 @@ import { Dropzone } from "./components/Dropzone";
 import { ErrorState } from "./components/ErrorState";
 import { ResultView } from "./components/ResultView";
 import { fetchVisionStatus, guessFromExif, guessFromVision } from "./lib/api";
-import { readGps } from "./lib/exif";
+import { readGps, readPhotoMetadata } from "./lib/exif";
 import { compressForVision, fileToPreviewFile, isAcceptedImage } from "./lib/image";
 import type { AppState, VisionStatus } from "./types";
 
@@ -93,8 +93,11 @@ export default function App() {
         return;
       }
 
-      const image = await compressForVision(previewFile);
-      const guess = await guessFromVision(image);
+      const [image, metadata] = await Promise.all([
+        compressForVision(previewFile),
+        readPhotoMetadata(file),
+      ]);
+      const guess = await guessFromVision(image, metadata);
       if (phaseTimer.current) window.clearInterval(phaseTimer.current);
       setState({ status: "result", previewUrl, guess, fileName: file.name });
     } catch (error) {
@@ -166,8 +169,9 @@ export default function App() {
       </main>
 
       <footer>
-        Photos stay in your browser first. Images are sent to a vision model only
-        when no GPS is found. Coordinates from EXIF are reverse-geocoded via
+        Photos stay in your browser first. Images, plus basic metadata such as
+        capture time and camera (never GPS), are sent to a vision model only when
+        no GPS is found. Coordinates from EXIF are reverse-geocoded via
         OpenStreetMap Nominatim.
       </footer>
     </div>

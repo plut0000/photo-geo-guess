@@ -1,4 +1,4 @@
-import type { LocationGuess, VisionStatus } from "../types";
+import type { LocationGuess, PhotoMetadata, VisionStatus } from "../types";
 
 export async function fetchVisionStatus(): Promise<VisionStatus> {
   const res = await fetch("/api/status");
@@ -20,11 +20,14 @@ export async function guessFromExif(
   return parseGuessResponse(res);
 }
 
-export async function guessFromVision(imageDataUrl: string): Promise<LocationGuess> {
+export async function guessFromVision(
+  imageDataUrl: string,
+  metadata?: PhotoMetadata,
+): Promise<LocationGuess> {
   const res = await fetch("/api/guess", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ source: "vision", image: imageDataUrl }),
+    body: JSON.stringify({ source: "vision", image: imageDataUrl, metadata }),
   });
   return parseGuessResponse(res);
 }
